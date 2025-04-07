@@ -4,6 +4,8 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
 use clap::Parser;
+use dotenv::dotenv;
+use std::env;
 
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -14,8 +16,9 @@ pub struct EnvConfig {
 }
 
 pub static ENV: Lazy<EnvConfig> = Lazy::new(|| {
-    let env_path = r"D:\avitus\price-submitter\src\env.json"; 
-    let env_content = fs::read_to_string(env_path).expect("Failed to read env.json");
+    dotenv().ok();
+    let envjson: String = env::var("ENVJSON").expect("ENVJSON must be set");
+    let env_content = fs::read_to_string(envjson).expect("Failed to read env.json");
     println!("ENV content == {:?}", &env_content);
     serde_json::from_str(&env_content).expect("Failed to parse env.json")
 });
