@@ -1,4 +1,4 @@
-# 🧠 Oracle Price Submitter & Keeper (Rust)
+#  Oracle Price Submitter & Keeper (Rust)
 
 A high-performance price oracle system that fetches real-time token prices from **Pyth Network** and stores them in a PostgreSQL database using **SeaORM**. This system combines the functionality of the original **Price Submitter** and **Pricing Keeper**.
 
