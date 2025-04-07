@@ -1,14 +1,14 @@
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde::Serialize;
 
-#[derive(Clone)]
-pub struct AssetPricingInfo {
-    pub token_address: String,
-    pub token_symbol: String,
-    pub min_price: String,
-    pub max_price: String,
-    pub update_at: u64,
-}
+// #[derive(Clone)]
+// pub struct AssetPricingInfo {
+//     pub token_address: String,
+//     pub token_symbol: String,
+//     pub min_price: String,
+//     pub max_price: String,
+//     pub update_at: u64,
+// }
 
 #[derive(Clone)]
 pub struct AssetInfo {
@@ -18,12 +18,12 @@ pub struct AssetInfo {
 
 #[derive(Debug, Serialize)]
 pub struct AssetPricingInfo2 {
-    pub tokenAddress: String,
-    pub tokenSymbol: String,
-    pub minPrice: Option<String>,
-    pub maxPrice: Option<String>,
-    pub updatedAt: chrono::DateTime<Utc>,
-    pub priceDecimals : f32
+    pub token_address: String,
+    pub token_symbol: String,
+    pub min_price: Option<String>,
+    pub max_price: Option<String>,
+    pub updated_at: chrono::DateTime<Utc>,
+    pub price_decimals : f32
 }
 
 #[derive(Debug, Serialize)]

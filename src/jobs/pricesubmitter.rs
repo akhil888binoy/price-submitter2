@@ -1,10 +1,9 @@
 #[path = "../../entity/src/mod.rs"]
 mod entities;
 
-use crate::assets::commodity::config::commodityconfig::{PERIOD_ID_MAPPING, SYMBOL_TO_ID_MAPPING};
 use crate::configs::envconfig::{CHAINID_MAP, ENV};
 use crate::utils::helpersutils::{
-    PERIOD_MAP, PRICE_FETCH_INTERVAL, SYMBOL_TO_ADDRESS_MAPPING, TOKENS_MAPPINGS, sleep_ms,
+    PERIOD_MAP, TOKENS_MAPPINGS
 };
 use crate::utils::pricesutils::get_token_prices;
 use entities::{prelude::*, *};

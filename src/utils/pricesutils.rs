@@ -24,41 +24,24 @@ use crate::utils::helpersutils::{
 #[path = "../../entity/src/mod.rs"]
 mod entities;
 
-use crate::assets::commodity::config::commodityconfig::{PERIOD_ID_MAPPING, SYMBOL_TO_ID_MAPPING};
 use crate::configs::envconfig::{CHAINID_MAP, ENV};
-use std::error::Error;
 
-use crate::utils::helpersutils::{
-    PERIOD_MAP, PRICE_FETCH_INTERVAL, TOKENS_MAPPINGS, sleep_ms,  
+use crate::utils::responseinterfaceutils::{
+    ParclDetails, ParclIdResponse, ParclResponse, PythResponse,
 };
 use chrono::Utc;
 use entities::{prelude::*, *};
 use sea_orm::entity::prelude::*;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, QueryOrder, Set};
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait, QueryFilter, QueryOrder};
 use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
-use crate::utils::interfaceutils::AssetPricingInfo;
-use crate::utils::responseinterfaceutils::{ParclDetails, ParclIdResponse, ParclResponse, PythResponse};
 extern crate rand;
 use num_bigint::BigInt;
-use num_traits::pow;
 use rand::Rng;
-use num_traits::{One, Zero};
 
 use super::interfaceutils::AssetPricingInfo2;
 
-
-
-#[derive(Debug)]
-struct TokenPrice {
-    token: String,  // Token address
-    close: Decimal, // Latest close price
-}
-
-
-const PRICE_DECIMALS : usize = 4;
-const PRECISION : i32 = 10;
-
+const PRICE_DECIMALS: usize = 4;
+const PRECISION: i32 = 10;
 
 pub fn get_pyth_price_url() -> String {
     let mut pyth_url = String::from("https://hermes.pyth.network/v2/updates/price/latest?");
@@ -79,7 +62,7 @@ pub fn get_pyth_price_url() -> String {
 
 pub async fn get_pyth_prices() -> Result<HashMap<String, f64>, Box<dyn std::error::Error>> {
     let mut result: HashMap<String, f64> = HashMap::new();
-    
+
     let pyth_id_to_token_mapping = match PYTH_ID_TO_TOKEN_MAPPING.get(&ENV.NETWORK) {
         Some(ids) => ids,
         None => panic!("No mapping found for the given network"),
@@ -274,260 +257,177 @@ pub async fn get_token_prices() -> Result<HashMap<String, f64>, Box<dyn std::err
     Ok(result)
 }
 
-
-pub async fn get_token_prices_filtered() -> Result<Vec<AssetPricingInfo>, Box<dyn std::error::Error>>
-{
-    let token_prices = match get_token_prices().await {
-        Ok(data) => data,
-        Err(e) => {
-            eprintln!("Error getting token prices: {}", e);
-            return Err(e.into());
-        }
-    };
-
-    let mut token_prices_array: Vec<AssetPricingInfo> = Vec::new();
-
-    for (asset, value) in token_prices {
-        if !value.is_nan() {
-            let precision = 10;
-            let asset_price = (value * 10f64.powi(precision as i32)) as i64;
-            let decimals = match SYMBOL_TO_DECIMAL_MAPPING.get(&asset) {
-                Some(d) => *d,
-                None => {
-                    eprintln!("No decimals found for asset: {}", asset);
-                    continue;
-                }
-            };
-
-            // Ensure decimals >= precision to avoid negative exponents
-            if decimals < precision {
-                eprintln!(
-                    "Decimals ({}) cannot be less than precision ({}) for asset: {}",
-                    decimals, precision, asset
-                );
-                continue;
-            }
-            let subdecprec = decimals - precision;
-            let token_price =
-                BigInt::from(asset_price) * pow(BigInt::from(10), subdecprec as usize);
-
-            let current_time = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
-
-            let token_prices_filtered = AssetPricingInfo {
-                token_address: SYMBOL_TO_ADDRESS_MAPPING
-                    .get(&asset)
-                    .unwrap_or(&"".to_string())
-                    .to_string(),
-                token_symbol: asset,
-                min_price: token_price.to_string(),
-                max_price: token_price.to_string(),
-                update_at: current_time,
-            };
-
-            token_prices_array.push(token_prices_filtered);
-        }
-    }
-
-    Ok(token_prices_array)
-}
-
-pub async fn gettokenpricesfromdb( db: &DatabaseConnection)-> Result<HashMap<&str, f32>, DbErr >{
+pub async fn gettokenpricesfromdb(db: &DatabaseConnection) -> Result<HashMap<&str, f32>, DbErr> {
     let mut grouped_tokens = HashMap::new();
     let mut result = HashMap::new();
     let mut supportedfinaltokens = Vec::new();
-    let supportedtokens = match SUPPORTED_TOKENS.get(&ENV.NETWORK){
-        Some(data)=> data.clone(),
-        None=>panic!("Error : Cannot get tokens")
+    let supportedtokens = match SUPPORTED_TOKENS.get(&ENV.NETWORK) {
+        Some(data) => data.clone(),
+        None => panic!("Error : Cannot get tokens"),
     };
-    
-    let supportedrealestatetokens = vec![
-    "CLT", "DEN", "MIA", "TPA", "MIAB", 
-    "NYC", "LAX", "SAN", "SOLB", "SFO", 
-    "LAS", "PIT", "PHL", "AUS", "DFW", 
-    "IAH", "ATL", "SEA", "PHX", "CHI", 
-    "BOS", "PDX", "WDC", "BKN", "USA", 
-    "PARIS", "LCY", "CHIR", "DENR", "USDR"
-    ];    
 
-    
-    for token in supportedtokens{
-        if !supportedrealestatetokens.contains(&token){
+    let supportedrealestatetokens = vec![
+        "CLT", "DEN", "MIA", "TPA", "MIAB", "NYC", "LAX", "SAN", "SOLB", "SFO", "LAS", "PIT",
+        "PHL", "AUS", "DFW", "IAH", "ATL", "SEA", "PHX", "CHI", "BOS", "PDX", "WDC", "BKN", "USA",
+        "PARIS", "LCY", "CHIR", "DENR", "USDR",
+    ];
+
+    for token in supportedtokens {
+        if !supportedrealestatetokens.contains(&token) {
             supportedfinaltokens.push(token);
         }
     }
-    let mut tokenAddresses = Vec::new();
+    let mut token_addresses = Vec::new();
 
-    for tokenSymbol in supportedfinaltokens.clone(){
-        let tokenaddress = match SYMBOL_TO_ADDRESS_MAPPING.get(tokenSymbol){
-            Some(data)=>data,
-            None=>panic!("Error : Cannot get address")
+    for token_symbol in supportedfinaltokens.clone() {
+        let tokenaddress = match SYMBOL_TO_ADDRESS_MAPPING.get(token_symbol) {
+            Some(data) => data,
+            None => panic!("Error : Cannot get address"),
         };
-        tokenAddresses.push(tokenaddress.to_string());
+        token_addresses.push(tokenaddress.to_string());
     }
 
-    let mut realEstateTokenAddress = Vec::new();
+    let mut real_estate_token_address = Vec::new();
 
-    if ENV.NETWORK== "bitlayer_testnet".to_string() {
-        for tokenSymbol in supportedrealestatetokens.clone(){
-            let realestatetoken = match SYMBOL_TO_ADDRESS_MAPPING.get(tokenSymbol){
-                Some(data)=>data,
-                None=>panic!("Error : Cannot get token symbol")
+    if ENV.NETWORK == "bitlayer_testnet".to_string() {
+        for token_symbol in supportedrealestatetokens.clone() {
+            let realestatetoken = match SYMBOL_TO_ADDRESS_MAPPING.get(token_symbol) {
+                Some(data) => data,
+                None => panic!("Error : Cannot get token symbol"),
             };
-            realEstateTokenAddress.push(realestatetoken.to_string());
+            real_estate_token_address.push(realestatetoken.to_string());
         }
     }
-    let chainid = match CHAINID_MAP.get(&ENV.NETWORK){
-        Some(data)=>data,
-        None=>panic!("Error : Cannot get chainid")
+    let chainid = match CHAINID_MAP.get(&ENV.NETWORK) {
+        Some(data) => data,
+        None => panic!("Error : Cannot get chainid"),
     };
 
-      // Get regular token prices (1m period)
+    // Get regular token prices (1m period)
     let tokens_data = PriceCandle::find()
-      .filter(price_candle::Column::Token.is_in(tokenAddresses.clone()))
-      .filter(price_candle::Column::Period.eq("1m"))
-      .filter(price_candle::Column::ChainId.eq(chainid.clone()))
-      .order_by_desc(price_candle::Column::Timestamp)
-      .all(db)
-      .await;
-    
+        .filter(price_candle::Column::Token.is_in(token_addresses.clone()))
+        .filter(price_candle::Column::Period.eq("1m"))
+        .filter(price_candle::Column::ChainId.eq(chainid.clone()))
+        .order_by_desc(price_candle::Column::Timestamp)
+        .all(db)
+        .await;
+
     // Group by token and get latest close price
-    let tokensData = match tokens_data{
-        Ok(data)=>data,
-        Err(e)=>panic!("Error : Cannot get data from DB")
+    let tokens_data = match tokens_data {
+        Ok(data) => data,
+        Err(_) => panic!("Error : Cannot get data from DB"),
     };
-    
-    for candle in tokensData {
-        grouped_tokens.entry(candle.token.clone()) // Use token as key
-        .or_insert(candle.close); // Store just the close price
+
+    for candle in tokens_data {
+        grouped_tokens
+            .entry(candle.token.clone()) // Use token as key
+            .or_insert(candle.close); // Store just the close price
     }
 
     // Map to token symbols
     for (token_addr, close) in grouped_tokens {
-        if let Some(index) = tokenAddresses.iter().position(|x| x == &token_addr) {
+        if let Some(index) = token_addresses.iter().position(|x| x == &token_addr) {
             if let Some(token_symbol) = supportedfinaltokens.get(index) {
-                result.insert(token_symbol.clone(), close);
+                result.insert(*token_symbol, close);
             }
         }
     }
 
+    // Get real estate token prices (1d period)
+    let realestatedata = PriceCandle::find()
+        .filter(price_candle::Column::Token.is_in(real_estate_token_address.clone()))
+        .filter(price_candle::Column::Period.eq("1d"))
+        .filter(price_candle::Column::ChainId.eq(chainid.clone()))
+        .order_by_desc(price_candle::Column::Timestamp)
+        .all(db)
+        .await;
 
-  // Get real estate token prices (1d period)
-  let realestatedata = PriceCandle::find()
-  .filter(price_candle::Column::Token.is_in(realEstateTokenAddress.clone()))
-      .filter(price_candle::Column::Period.eq("1d"))
-      .filter(price_candle::Column::ChainId.eq(chainid.clone()))
-      .order_by_desc(price_candle::Column::Timestamp)
-      .all(db)
-      .await;
+    let real_estate_data = match realestatedata {
+        Ok(data) => data,
+        Err(_) => panic!("Error: Cannot get data form DB"),
+    };
 
-let real_estate_data = match realestatedata{
-    Ok(data)=>data,
-    Err(e)=>panic!("Error: Cannot get data form DB")
-};
+    // Group by token and get latest close price
+    let mut grouped_real_estate = HashMap::new();
 
-  // Group by token and get latest close price
-  let mut grouped_real_estate = HashMap::new();
+    for candle in real_estate_data {
+        grouped_real_estate
+            .entry(candle.token.clone())
+            .or_insert(candle.close);
+    }
 
-  for candle in real_estate_data {
-      grouped_real_estate.entry(candle.token.clone())
-          .or_insert(candle.close);
-  }
+    // Map to token symbols
+    for (token_addr, close) in grouped_real_estate {
+        if let Some(index) = real_estate_token_address.iter().position(|x| x == &token_addr) {
+            if let Some(token_symbol) = supportedrealestatetokens.get(index) {
+                result.insert(token_symbol, close);
+            }
+        }
+    }
 
-
-
-
-  // Map to token symbols
-  for (token_addr, close) in grouped_real_estate {
-      if let Some(index) = realEstateTokenAddress.iter().position(|x| x == &token_addr) {
-          if let Some(token_symbol) = supportedrealestatetokens.get(index) {
-              result.insert(token_symbol, close);
-          }
-      }
-  }
-
-  Ok(result) 
-
-
+    Ok(result)
 }
 
-pub async fn calculatePriceDecimals(price : f32)-> Option<usize> {
+pub async fn calculate_price_decimals(price: f32) -> Option<usize> {
     if price > 1.0 {
         return Some(PRICE_DECIMALS);
-    }else{
+    } else {
+        let price_string = price.to_string();
 
-        let priceString = price.to_string();
-        let trailingZeroes = 0;
+        if let Some(starting_index_exponential) = price_string.find("e") {
+            let exponent_char = price_string.chars().nth(starting_index_exponential + 2)?;
 
-    if let Some(startingIndexExponential) =  priceString.find("e"){
+            let exponent_digit = exponent_char.to_digit(10)? as usize;
 
-        let exponent_char = priceString.chars().nth(startingIndexExponential + 2)?;
-        
-        let exponent_digit = exponent_char.to_digit(10)? as usize;
-        
-        Some(exponent_digit - 1 + PRICE_DECIMALS)
-    }
-
-    else if  let Some(startingIndex ) =  priceString.find("."){
-
-        let mut trailing_zeroes = 0;
-        for c in priceString[startingIndex + 1..].chars() {
-            match c {
-                '0' => trailing_zeroes += 1,
-                _ => break,
+            Some(exponent_digit - 1 + PRICE_DECIMALS)
+        } else if let Some(starting_index) = price_string.find(".") {
+            let mut trailing_zeroes = 0;
+            for c in price_string[starting_index + 1..].chars() {
+                match c {
+                    '0' => trailing_zeroes += 1,
+                    _ => break,
+                }
             }
-        }
-    
-        Some(trailing_zeroes + PRICE_DECIMALS)
-    }
-    else {
-        return Some(0);
-    }
-    
-    }
 
+            Some(trailing_zeroes + PRICE_DECIMALS)
+        } else {
+            return Some(0);
+        }
+    }
 }
 
+pub async fn get_token_prices_filtered(db: &DatabaseConnection) -> Vec<AssetPricingInfo2> {
+    let token_prices = match gettokenpricesfromdb(db).await {
+        Ok(data) => data,
+        Err(_) => panic!("Error : Cannot get token prices form DB"),
+    };
 
-pub async fn  getTokenPricesFiltered(db: &DatabaseConnection)->Vec<AssetPricingInfo2>{
-    let tokenPrices =  match gettokenpricesfromdb(db).await{
-        Ok(data)=>data,
-        Err(e)=>panic!("Error : Cannot get token prices form DB")
-    };  
-
-    let mut tokenPricesArray = Vec::new();
+    let mut token_prices_array = Vec::new();
 
     let timestamp = Utc::now();
-    for (token , price) in tokenPrices{
+    for (token, price) in token_prices {
         let asset_price: i32 = (price * 10f32.powi(PRECISION)).round() as i32;
         let asset_price_bigint = BigInt::from(asset_price);
         let asset_decimals = match SYMBOL_TO_DECIMAL_MAPPING.get(token) {
             Some(&decimals) => decimals,
             None => panic!("Error: Asset not found in mapping"),
-        }; 
-
-        let power = asset_decimals as i32 - PRECISION as i32;
-        let scale_factor = BigInt::from(10).pow(power as u32); 
-
-        let tokenPrice = asset_price_bigint * scale_factor; 
-
-        let tokenPricesFiltered = AssetPricingInfo2{
-        tokenAddress: SYMBOL_TO_ADDRESS_MAPPING.get(token).unwrap().to_string(),
-        tokenSymbol: token.to_string(),
-        minPrice: Some(tokenPrice.to_string()),
-        maxPrice: Some(tokenPrice.to_string()),
-        updatedAt: timestamp,
-        priceDecimals: calculatePriceDecimals(price).await.unwrap() as f32,
         };
 
+        let power = asset_decimals as i32 - PRECISION as i32;
+        let scale_factor = BigInt::from(10).pow(power as u32);
 
-        tokenPricesArray.push(tokenPricesFiltered);
-        
+        let token_price = asset_price_bigint * scale_factor;
 
-         
-    }  
-    tokenPricesArray
+        let token_prices_filtered = AssetPricingInfo2 {
+            token_address: SYMBOL_TO_ADDRESS_MAPPING.get(token).unwrap().to_string(),
+            token_symbol: token.to_string(),
+            min_price: Some(token_price.to_string()),
+            max_price: Some(token_price.to_string()),
+            updated_at: timestamp,
+            price_decimals: calculate_price_decimals(price).await.unwrap() as f32,
+        };
 
+        token_prices_array.push(token_prices_filtered);
+    }
+    token_prices_array
 }

@@ -2,13 +2,12 @@
 use std::{collections::HashMap, fs};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use serde_json::Result;
-use clap::Parser;
 use dotenv::dotenv;
 use std::env;
 
 
 #[derive(Serialize, Deserialize, Debug)]
+#[allow(non_snake_case)]
 pub struct EnvConfig {
     pub NETWORK:String,
     pub MAX_PRICE_INTERVAL: u32,
@@ -24,6 +23,7 @@ pub static ENV: Lazy<EnvConfig> = Lazy::new(|| {
     serde_json::from_str(&env_content).expect("Failed to parse env.json")
 });
 
+#[allow(unused)]
 pub static CHAINID_MAP: Lazy<HashMap<String, i64>> = Lazy::new(|| {
     let mut map = HashMap::new();
     map.insert("arbitrum_sepolia".to_string(), 421614);
