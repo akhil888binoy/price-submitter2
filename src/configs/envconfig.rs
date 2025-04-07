@@ -17,6 +17,7 @@ pub struct EnvConfig {
 
 pub static ENV: Lazy<EnvConfig> = Lazy::new(|| {
     dotenv().ok();
+
     let envjson: String = env::var("ENVJSON").expect("ENVJSON must be set");
     let env_content = fs::read_to_string(envjson).expect("Failed to read env.json");
     println!("ENV content == {:?}", &env_content);

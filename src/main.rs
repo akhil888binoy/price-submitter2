@@ -56,8 +56,8 @@ async fn rocket() -> Rocket<Build> {
 
     rocket::build()
         .manage(db)
-        .mount("/", routes![hello, get_price_candles, get_price24h, get_dummy_data, getPriceTickers, report_ui])
-        // .mount("/prices", routes![])
+        .mount("/", routes![hello, get_dummy_data, report_ui])
+        .mount("/prices", routes![get_price_candles, get_price24h, getPriceTickers])
         // .mount("/candles", routes![get_price_candles])
         // .mount("/prices/24h", routes![get_price24h])
 }

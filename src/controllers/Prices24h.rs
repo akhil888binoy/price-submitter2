@@ -10,7 +10,7 @@ use crate::{configs::envconfig::{CHAINID_MAP, ENV}, utils::{helpersutils::{SUPPO
 #[path = "../../entity/src/mod.rs"]
 mod entities;
 
-#[get("/prices/candles")]
+#[get("/candles")]
 pub async fn get_price24h (
     db: &State<DbConnection>
 ) -> Result<
