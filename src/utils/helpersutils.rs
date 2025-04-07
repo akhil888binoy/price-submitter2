@@ -1,11 +1,6 @@
 
-#[path = "../configs/envconfig.rs"]
-mod envconfig;
-#[path = "./interfaceutils.rs"]
-mod interfaceutils;
-
-use envconfig::ENV;
-use interfaceutils::AssetInfo;
+use crate::configs::envconfig::ENV;
+use crate::utils::interfaceutils::AssetInfo;
 
 use once_cell::sync::Lazy;
 use std::time::Duration;
