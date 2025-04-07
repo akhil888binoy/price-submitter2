@@ -4,7 +4,7 @@ mod envconfig;
 #[path = "./interfaceutils.rs"]
 mod interfaceutils;
 
-use envconfig::{CHAINID_MAP, ENV};
+use envconfig::ENV;
 use interfaceutils::AssetInfo;
 
 use once_cell::sync::Lazy;
@@ -558,6 +558,7 @@ pub static TOKEN_INFO: Lazy<HashMap<String, HashMap<String, AssetInfo>>> = Lazy:
     networks
 });
 
+#[allow(non_snake_case)]
 pub fn get_token_addresses() -> HashMap<String, String> {
     let mut TOKEN_ADDRESSES = HashMap::new();
     if let Some(TOKEN_INFO_CHAIN) = TOKEN_INFO.get(&ENV.NETWORK) {
@@ -569,6 +570,7 @@ pub fn get_token_addresses() -> HashMap<String, String> {
     return TOKEN_ADDRESSES;
 }
 
+#[allow(non_snake_case)]
 pub fn get_token_decimals() -> HashMap<String, u64> {
     let mut TOKEN_ADDRESSES = HashMap::new();
     if let Some(TOKEN_INFO_CHAIN) = TOKEN_INFO.get(&ENV.NETWORK) {
